@@ -7,7 +7,7 @@ Python SDK for authoring Zagtag extensions using the loopback HTTP protocol.
 Pin to a released version (immutable git tag):
 
 ```sh
-uv add "zagtag-extension-sdk @ git+https://github.com/reaganiwadha/zagtag-python-sdk.git@sdk-v0.1.0"
+uv add "zagtag-extension-sdk @ git+https://github.com/reaganiwadha/zagtag-python-sdk.git@sdk-v0.2.0"
 ```
 
 Or track the latest unreleased changes:
