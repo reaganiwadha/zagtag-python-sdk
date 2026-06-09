@@ -72,15 +72,34 @@ class DerivatorContribution:
 
 
 @dataclass
+class TagMetaDefinition:
+    """Optional, advisory declaration of a tag-metadata key. The host does not
+    validate emitted meta against this; it is a hint for typing/UI only."""
+
+    name: str
+    value_type: str  # "bool" | "int" | "float" | "string" — hint only; meta is text.
+    unit: Optional[str] = None
+
+    def to_json(self) -> dict:
+        out = {"name": self.name, "value_type": self.value_type}
+        if self.unit is not None:
+            out["unit"] = self.unit
+        return out
+
+
+@dataclass
 class TagDefinition:
     key: str
     value_type: str
     unit: Optional[str] = None
+    meta: list = field(default_factory=list)  # list[TagMetaDefinition], advisory
 
     def to_json(self) -> dict:
         out = {"key": self.key, "value_type": self.value_type}
         if self.unit is not None:
             out["unit"] = self.unit
+        if self.meta:
+            out["meta"] = [m.to_json() for m in self.meta]
         return out
 
 
@@ -162,6 +181,11 @@ DerivatorFn = Callable[[DerivatorContext], DerivatorOutput]
 # --- Tagger runtime types ---
 
 
+# Reserved metadata key for a tagger's confidence in a tag (a float in [0, 1] by
+# convention, formatted to a string). The search backend filters/sorts on it.
+CONFIDENCE_META = "confidence"
+
+
 @dataclass
 class EmittedTag:
     key: str
@@ -170,6 +194,17 @@ class EmittedTag:
     int_value: Optional[int] = None
     float_value: Optional[float] = None
     bool_value: Optional[bool] = None
+    # Free-form metadata as (name, value) pairs; value is always a string.
+    meta: list = field(default_factory=list)
+
+    def with_meta(self, name: str, value: str) -> "EmittedTag":
+        """Attach a free-form metadata attribute to this tag. Chainable."""
+        self.meta.append((name, value))
+        return self
+
+    def with_confidence(self, confidence: float) -> "EmittedTag":
+        """Attach the reserved ``confidence`` attribute. Chainable."""
+        return self.with_meta(CONFIDENCE_META, str(confidence))
 
     @staticmethod
     def string(key: str, value: str) -> "EmittedTag":
@@ -192,7 +227,7 @@ class EmittedTag:
         return EmittedTag(key=key, value_type="bool", bool_value=value)
 
     def to_json(self) -> dict:
-        return {
+        out = {
             "key": self.key,
             "value_type": self.value_type,
             "string_value": self.string_value,
@@ -200,6 +235,9 @@ class EmittedTag:
             "float_value": self.float_value,
             "bool_value": self.bool_value,
         }
+        if self.meta:
+            out["meta"] = [{"name": n, "value": v} for (n, v) in self.meta]
+        return out
 
 
 @dataclass
@@ -438,6 +476,8 @@ __all__ = [
     "PreviewContribution",
     "DerivatorContribution",
     "TagDefinition",
+    "TagMetaDefinition",
+    "CONFIDENCE_META",
     "TaggerContribution",
     "ExtensionManifest",
     "DerivatorOutput",
